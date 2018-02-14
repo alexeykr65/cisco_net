@@ -15,7 +15,9 @@ fileName = ""
 flagDebug = 1
 flagPrint = False
 flagSave = False
+flagLoad = False
 listDevices = dict()
+listParamNetmiko = ['device_type', 'ip', 'username', 'password', 'port', 'verbose', 'secret']
 commandDefault = "sh version"
 
 description = "Cisco_Net: Configure cisco devices and get information from it, v1.0"
@@ -43,14 +45,15 @@ def GetDate():
 
 
 def CmdArgsParser():
-    global flagDebug, fileName, commandDefault, flagPrint, flagSave
+    global flagDebug, fileName, commandDefault, flagPrint, flagSave, flagLoad
     if flagDebug > 0: print "Analyze options ... "
     parser = argparse.ArgumentParser(description=description, epilog=epilog)
     parser.add_argument('-f', '--file', help='File name with cisco devices', dest="fileName", default='cisco_devices.conf')
     parser.add_argument('-d', '--debug', help='Debug information view(default =1, 2- more verbose)', dest="flagDebug", default=1)
     parser.add_argument('-c', '--command', help='Get command from routers', dest="command", default="")
     parser.add_argument('-p', '--printdisplay', help='View on screen', action="store_true")
-    parser.add_argument('-s', '--savetofile', help='View on screen', action="store_true")
+    parser.add_argument('-s', '--savetofile', help='Save to Files', action="store_true")
+    parser.add_argument('-l', '--loadfiles', help='Load from Files', action="store_true")
 
     arg = parser.parse_args()
 
@@ -63,6 +66,8 @@ def CmdArgsParser():
         flagPrint = True
     if arg.savetofile:
         flagSave = True
+    if arg.loadfiles:
+        flagLoad = True
 
 
 def FileConfigAnalyze():
@@ -88,23 +93,36 @@ def FileConfigAnalyze():
     if flagDebug > 1: print listDevices
 
 
+def getStructureNetmiko(infoDevice):
+    resNetmiko = dict()
+    for tParam in listParamNetmiko:
+        if tParam in infoDevice:
+            resNetmiko[tParam] = infoDevice[tParam]
+    return resNetmiko
+
+
 def ConnectToRouter(infoDevice, runCommand, mp_queue):
     return_data = dict()
     proc = os.getpid()
-
+    netmikoInfo = getStructureNetmiko(infoDevice)
     try:
-        SSH = netmiko.ConnectHandler(**infoDevice)
+        SSH = netmiko.ConnectHandler(**netmikoInfo)
         SSH.read_channel()
         find_hostname = SSH.find_prompt()
         hostname = re.match("^([^#>]*)[#>]", find_hostname).group(1).strip()
-        commandReturn = SSH.send_command(runCommand)
+        print "Process pid: " + str(proc) + ' Hostname: {0}'.format(hostname) + ' IpDevice: {ip}'.format(**infoDevice)
+        if flagLoad:
+            # print "Name File: " + infoDevice['conf_file']
+            commandReturn = SSH.send_config_from_file(infoDevice['conf_file'])
+        else:
+            commandReturn = SSH.send_command(runCommand)
     except (NetMikoTimeoutException, NetMikoAuthenticationException) as e:
         print "Cannot connect to ip : " + 'IpDevice: {ip}'.format(**infoDevice)
         print "Error: " + str(e)
         return None
-    print "Process pid: " + str(proc) + ' Hostname: {0}'.format(hostname) + ' IpDevice: {ip}'.format(**infoDevice)
     return_data[hostname] = commandReturn
     mp_queue.put(return_data)
+    SSH.disconnect()
 
 
 def main():
@@ -140,7 +158,6 @@ def main():
                 f = open(fileSave, 'w')
                 f.write(listRes[res])
                 f.close()
-    # print results
     print "\nEnd time: " + str(datetime.now())
 
 
