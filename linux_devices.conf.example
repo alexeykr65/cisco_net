@@ -1,0 +1,4 @@
+
+ip=192.168.18.10; username=root;password=cisco;device_type=linux
+ip=192.168.18.11;  username=root;password=cisco;device_type=linux
+ip=192.168.18.12; username=root;password=cisco;device_type=linux
