@@ -16,9 +16,11 @@ flagDebug = 1
 flagPrint = False
 flagSave = False
 flagLoad = False
+flagRunConfig = False
 listDevices = dict()
 listParamNetmiko = ['device_type', 'ip', 'username', 'password', 'port', 'verbose', 'secret']
 commandDefault = "sh version"
+grepRunConfig = "sh runn | "
 
 description = "Cisco_Net: Configure cisco devices and get information from it, v1.0"
 epilog = "http://ciscoblog.ru\nhttps://github.com/alexeykr65"
@@ -45,12 +47,13 @@ def GetDate():
 
 
 def CmdArgsParser():
-    global flagDebug, fileName, commandDefault, flagPrint, flagSave, flagLoad
+    global flagDebug, fileName, commandDefault, flagPrint, flagSave, flagLoad, grepRunConfig
     if flagDebug > 0: print "Analyze options ... "
     parser = argparse.ArgumentParser(description=description, epilog=epilog)
     parser.add_argument('-f', '--file', help='File name with cisco devices', dest="fileName", default='cisco_devices.conf')
     parser.add_argument('-d', '--debug', help='Debug information view(default =1, 2- more verbose)', dest="flagDebug", default=1)
-    parser.add_argument('-c', '--command', help='Get command from routers', dest="command", default="")
+    parser.add_argument('-cmd', '--command', help='Get command from routers', dest="command", default="")
+    parser.add_argument('-cr', '--runconfig', help='Get running config from routers', dest="runconfig", default="")
     parser.add_argument('-p', '--printdisplay', help='View on screen', action="store_true")
     parser.add_argument('-s', '--savetofile', help='Save to Files', action="store_true")
     parser.add_argument('-l', '--loadfiles', help='Load from Files', action="store_true")
@@ -68,6 +71,8 @@ def CmdArgsParser():
         flagSave = True
     if arg.loadfiles:
         flagLoad = True
+    if arg.runconfig:
+        commandDefault = grepRunConfig + arg.runconfig
 
 
 def FileConfigAnalyze():
@@ -105,6 +110,7 @@ def ConnectToRouter(infoDevice, runCommand, mp_queue):
     return_data = dict()
     proc = os.getpid()
     netmikoInfo = getStructureNetmiko(infoDevice)
+    if flagDebug > 1: print "NetmikoInfo : " + str(netmikoInfo)
     try:
         SSH = netmiko.ConnectHandler(**netmikoInfo)
         SSH.read_channel()
